@@ -41,7 +41,7 @@ app.post("/api/split", upload.single("audio"), (req, res) => {
   const segmentTime = req.body.segmentTime || 600;
 
   const inputPath = req.file.path;
-  const fileName = path.parse(req.file.originalname).name;
+  const fileName = "audio_" + Date.now();
   const outputPattern = path.join(
     __dirname,
     "output",
