@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Audio Splitter Pro</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        display: flex;
+        justify-content: center;
+        padding-top: 50px;
+        background: #eef2f7;
+        color: #333;
+      }
+      .card {
+        background: white;
+        padding: 2rem;
+        border-radius: 15px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        width: 90%; /* Cambiado de 100% a 90% para dejar margen */
+        max-width: 450px;
+        box-sizing: border-box; /* Incluye el padding en el ancho total */
+      }
+      h1 {
+        font-size: 1.5rem;
+        text-align: center;
+        color: #1a73e8;
+        margin-bottom: 1.5rem;
+      }
+
+      .form-group {
+        margin-bottom: 1.5rem;
+      }
+      label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+      }
+
+      input[type="file"],
+      select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        box-sizing: border-box; /* Evita que se salga del borde */
+      }
+
+      button {
+        width: 100%;
+        background: #1a73e8;
+        color: white;
+        border: none;
+        padding: 12px;
+        border-radius: 8px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.3s;
+      }
+      button:hover {
+        background: #1557b0;
+      }
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+
+      #status {
+        margin-top: 25px;
+        border-top: 1px solid #eee;
+        padding-top: 15px;
+      }
+      .chunk-item {
+        background: #f8f9fa;
+        border-left: 4px solid #1a73e8;
+        margin: 8px 0;
+        padding: 10px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px; /* Espacio entre el nombre y el botón */
+      }
+
+      .chunk-item a {
+        text-decoration: none;
+        color: #1a73e8;
+        font-weight: bold;
+        flex-grow: 1;
+        white-space: nowrap; /* No permite que el texto salte de línea */
+        overflow: hidden; /* Esconde lo que sobra */
+        text-overflow: ellipsis; /* Pone "..." al final si es muy largo */
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Audio Splitter Pro</h1>
+
+      <div class="form-group">
+        <label>1. Selecciona tu archivo MP3:</label>
+        <input type="file" id="audioInput" accept="audio/mpeg, audio/mp3" />
+      </div>
+
+      <div class="form-group">
+        <label>2. Dividir cada:</label>
+        <select id="timeSelect">
+          <option value="60">1 Minuto</option>
+          <option value="300">5 Minutos</option>
+          <option value="600" selected>10 Minutos</option>
+          <option value="900">15 Minutos</option>
+        </select>
+      </div>
+
+      <button onclick="subirAudio()" id="btn">Empezar a dividir</button>
+
+      <div id="status"></div>
+    </div>
+
+    <script>
+      async function subirAudio() {
+        const fileInput = document.getElementById("audioInput");
+        const status = document.getElementById("status");
+        const btn = document.getElementById("btn");
+        const timeSelect = document.getElementById("timeSelect");
+
+        if (!fileInput.files[0])
+          return alert("Por favor, selecciona un archivo MP3 primero.");
+
+        const formData = new FormData();
+        formData.append("audio", fileInput.files[0]);
+        formData.append("segmentTime", timeSelect.value);
+
+        status.innerHTML =
+          "⏳ <strong>Procesando...</strong> Esto puede tardar según el tamaño del archivo.";
+        btn.disabled = true;
+
+        try {
+          const response = await fetch("/api/split", {
+            method: "POST",
+            body: formData,
+          });
+
+          const data = await response.json();
+
+          if (data.chunks) {
+            // --- SECCIÓN MODIFICADA ---
+            let listaHtml = `<strong>✅ ¡Completado! Haz clic para descargar:</strong><br>`;
+
+            data.chunks.forEach((nombreArchivo) => {
+              listaHtml += `
+        <div class="chunk-item">
+            <a href="/descargas/${nombreArchivo}" 
+               download="${nombreArchivo}" 
+               title="${nombreArchivo}"> 📁 ${nombreArchivo}
+            </a>
+            <span style="color: #10b981; font-size: 11px; font-weight: bold; flex-shrink: 0;">⬇️ DESCARGAR</span>
+        </div>`;
+            });
+            status.innerHTML = listaHtml;
+            // --------------------------
+          } else {
+            status.innerText = "❌ Error al procesar el audio.";
+          }
+        } catch (err) {
+          console.error(err);
+          status.innerText = "❌ Error de conexión con el servidor.";
+        } finally {
+          btn.disabled = false;
+        }
+      }
+    </script>
+  </body>
+</html>
