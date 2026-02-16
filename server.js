@@ -31,25 +31,30 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + "-" + file.originalname);
   },
 });
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 150 * 1024 * 1024, // 150MB máximo
+  },
+});
 
 // --- RUTA PARA DIVIDIR EL MP3 ---
 app.post("/api/split", upload.single("audio"), (req, res) => {
   if (!req.file) return res.status(400).send("No subiste ningún archivo.");
 
   // Obtenemos el tiempo del formulario, si no, 600seg (10min) por defecto
-  const segmentTime = req.body.segmentTime || 600;
+  const segmentTime = parseInt(req.body.segmentTime) || 600;
 
   const inputPath = req.file.path;
   const fileName = "audio_" + Date.now();
   const outputPattern = path.join(
     __dirname,
     "output",
-    `${fileName}_part_%03d.mp3`
+    `${fileName}_part_%03d.mp3`,
   );
 
   console.log(
-    `Procesando: ${req.file.originalname} | Segmentos de: ${segmentTime}s`
+    `Procesando: ${req.file.originalname} | Segmentos de: ${segmentTime}s`,
   );
 
   ffmpeg(inputPath)
@@ -61,7 +66,7 @@ app.post("/api/split", upload.single("audio"), (req, res) => {
     ])
     .on("error", (err) => {
       console.error("Error FFmpeg:", err);
-      res.status(500).json({ error: err.message });
+      return res.status(500).json({ error: err.message });
     })
     .on("end", () => {
       console.log("✅ División terminada con éxito.");
@@ -74,6 +79,19 @@ app.post("/api/split", upload.single("audio"), (req, res) => {
         message: "Audio dividido correctamente",
         chunks: chunks,
       });
+
+      setTimeout(
+        () => {
+          chunks.forEach((file) => {
+            const filePath = path.join(__dirname, "output", file);
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
+          });
+          console.log("🗑️ Archivos divididos eliminados automáticamente.");
+        },
+        2 * 60 * 1000,
+      );
 
       // Borramos el archivo original de 'uploads' para no llenar el disco
       fs.unlinkSync(inputPath);
